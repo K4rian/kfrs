@@ -1,7 +1,8 @@
-# KF HTTP Redirect Server (KFRS)
+# KF Redirect Server (KFRS)
 
 ## Overview
-`kfrs` is a lightweight HTTP file server for the Killing Floor Dedicated Server (KFDS). It serves .uz2 files from a specified directory while enforcing rate limits and IP bans to prevent excessive requests and ensure secure file access.
+`kfrs` is a lightweight HTTP file server for the Killing Floor Dedicated Server (KFDS). <br>
+It serves .uz2 files from a specified directory while enforcing rate limits and IP bans to prevent excessive requests and ensure secure file access.
 
 ## Features
 - Serves `.uz2` files from a specified directory.
@@ -18,6 +19,9 @@
   --ban-time 5
 ```
 
+## Using Docker
+See [docker/][1]
+
 ## Building
 Building is done with the `go` tool. If you have setup your `GOPATH` correctly, the following should work:
 ```bash
@@ -26,6 +30,7 @@ go build -ldflags "-w -s" github.com/k4rian/kfrs
 ```
 
 ## License
-[MIT][1]
+[MIT][2]
 
-[1]: https://github.com/K4rian/kfrs/blob/main/LICENSE
+[1]: https://github.com/K4rian/kfrs/blob/main/docker
+[2]: https://github.com/K4rian/kfrs/blob/main/LICENSE

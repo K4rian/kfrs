@@ -1,0 +1,13 @@
+services:
+  kfrs:
+    image: k4rian/kfrs:latest
+    container_name: kfrs
+    hostname: kfrs
+    volumes:
+      - ./redirect:/home/kfrs/redirect
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - kfrs.env
+    ports:
+      - 9090:9090/tcp
+    restart: unless-stopped
