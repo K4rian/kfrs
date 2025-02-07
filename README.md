@@ -21,4 +21,4 @@
 ## License
 [MIT][1]
 
-[1]: https://
+[1]: https://github.com/K4rian/kfrs/blob/main/LICENSE
