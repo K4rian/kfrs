@@ -3,8 +3,10 @@ package cmd
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -37,6 +39,16 @@ func BuildRootCommand() *cobra.Command {
 	rootCmd.Flags().IntVar(&MaxRequests, "max-requests", 20, "max requests per IP/minute")
 	rootCmd.Flags().IntVar(&BanTime, "ban-time", 15, "ban duration (in minutes)")
 
+	viper.BindPFlag("host", rootCmd.Flags().Lookup("host"))
+	viper.BindPFlag("port", rootCmd.Flags().Lookup("port"))
+	viper.BindPFlag("directory", rootCmd.Flags().Lookup("directory"))
+	viper.BindPFlag("max_requests", rootCmd.Flags().Lookup("max-requests"))
+	viper.BindPFlag("ban_time", rootCmd.Flags().Lookup("ban-time"))
+
+	viper.SetEnvPrefix("KFRS")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+
 	return rootCmd
 }
 
@@ -44,10 +56,10 @@ func printFlags() {
 	log.Println("===================================================")
 	log.Println("                   KFRS Settings                   ")
 	log.Println("===================================================")
-	log.Printf(" ● Host        → %s\n", Host)
-	log.Printf(" ● Port        → %d\n", Port)
-	log.Printf(" ● Directory   → %s\n", Directory)
-	log.Printf(" ● MaxRequests → %d\n", MaxRequests)
-	log.Printf(" ● BanTime     → %d\n", BanTime)
+	log.Printf(" ● Host         → %s\n", Host)
+	log.Printf(" ● Port         → %d\n", Port)
+	log.Printf(" ● Directory    → %s\n", Directory)
+	log.Printf(" ● Max Requests → %d\n", MaxRequests)
+	log.Printf(" ● Ban Time     → %d\n", BanTime)
 	log.Println("====================================================")
 }
