@@ -11,7 +11,7 @@ import (
 type Config struct {
 	Host          string
 	Port          int
-	Directory     string
+	ServeDir      string
 	MaxRequests   int
 	BanTime       int
 	LogToFile     bool
@@ -38,8 +38,8 @@ func (c *Config) Validate() error {
 	}
 
 	// The directory must exist
-	if _, err := os.Stat(c.Directory); os.IsNotExist(err) {
-		return fmt.Errorf("directory does not exist: %s", c.Directory)
+	if _, err := os.Stat(c.ServeDir); os.IsNotExist(err) {
+		return fmt.Errorf("directory does not exist: %s", c.ServeDir)
 	}
 
 	// Max Requests validation (> 0 and < 100)
@@ -95,7 +95,7 @@ func initConfig() {
 	conf = &Config{
 		Host:          DefaultHost,
 		Port:          DefaultPort,
-		Directory:     DefaultDirectory,
+		ServeDir:      DefaultServeDir,
 		MaxRequests:   DefaultMaxRequests,
 		BanTime:       DefaultBanTime,
 		LogToFile:     DefaultLogToFile,

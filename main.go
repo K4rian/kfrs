@@ -28,7 +28,7 @@ func main() {
 	server := server.NewKFHTTPRedirectServer(
 		conf.Host,
 		conf.Port,
-		conf.Directory,
+		conf.ServeDir,
 		conf.MaxRequests,
 		conf.BanTime,
 		ctx,
@@ -39,7 +39,7 @@ func main() {
 	if err := server.Listen(); err != nil {
 		log.Logger.Error("Failed to start the HTTP Redirect Server", "error", err)
 	}
-	log.Logger.Info("HTTP Redirect Server started", "rootdir", server.RootDirectory(), "address", server.Address())
+	log.Logger.Info("HTTP Redirect Server started", "rootDir", server.RootDirectory(), "address", server.Address())
 
 	<-signalChan
 

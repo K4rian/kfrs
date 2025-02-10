@@ -3,7 +3,7 @@ package config
 const (
 	DefaultHost          = "0.0.0.0"
 	DefaultPort          = 9090
-	DefaultDirectory     = "./redirect"
+	DefaultServeDir      = "./redirect"
 	DefaultMaxRequests   = 20
 	DefaultBanTime       = 15
 	DefaultLogToFile     = false

@@ -35,7 +35,7 @@ func BuildRootCommand() *cobra.Command {
 	}{
 		{"host", config.DefaultHost, "IP/Host to bind to"},
 		{"port", config.DefaultPort, "TCP port to listen on"},
-		{"directory", config.DefaultDirectory, "Directory to serve"},
+		{"serve-dir", config.DefaultServeDir, "Directory to serve"},
 		{"max-requests", config.DefaultMaxRequests, "Max requests per IP/minute"},
 		{"ban-time", config.DefaultBanTime, "Ban duration (in minutes)"},
 		{"log-to-file", config.DefaultLogToFile, "Enable log file output"},
@@ -131,7 +131,7 @@ func getConfigValue(cmd *cobra.Command, key string, defaultValue any) any {
 func setConfigValues(cmd *cobra.Command, conf *config.Config) {
 	conf.Host = getConfigValue(cmd, "host", config.DefaultHost).(string)
 	conf.Port = getConfigValue(cmd, "port", config.DefaultPort).(int)
-	conf.Directory = getConfigValue(cmd, "directory", config.DefaultDirectory).(string)
+	conf.ServeDir = getConfigValue(cmd, "serve-dir", config.DefaultServeDir).(string)
 	conf.MaxRequests = getConfigValue(cmd, "max-requests", config.DefaultMaxRequests).(int)
 	conf.BanTime = getConfigValue(cmd, "ban-time", config.DefaultBanTime).(int)
 	conf.LogToFile = getConfigValue(cmd, "log-to-file", config.DefaultLogToFile).(bool)
@@ -149,7 +149,7 @@ func printConfigValues(conf *config.Config) {
 	log.Logger.Info("===================================================")
 	log.Logger.Info(fmt.Sprintf(" ● Host            → %s", conf.Host))
 	log.Logger.Info(fmt.Sprintf(" ● Port            → %d", conf.Port))
-	log.Logger.Info(fmt.Sprintf(" ● Directory       → %s", conf.Directory))
+	log.Logger.Info(fmt.Sprintf(" ● Served Dir.     → %s", conf.ServeDir))
 	log.Logger.Info(fmt.Sprintf(" ● Max Requests    → %d/minute", conf.MaxRequests))
 	log.Logger.Info(fmt.Sprintf(" ● Ban Time        → %d minute(s)", conf.BanTime))
 	log.Logger.Info(fmt.Sprintf(" ● Log To File     → %t", conf.LogToFile))

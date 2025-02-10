@@ -15,21 +15,21 @@ It serves .uz2 files from a specified directory while enforcing rate limits and 
 ```bash
 ./kfrs --host "0.0.0.0" \
   --port 9090 \
-  --directory "./redirect" \
+  --serve-dir "./redirect" \
   --max-requests 20 \
   --ban-time 15
 ```
 
 ### With File Logging
-Enable logging to a file with a custom format:
+Enable logging to a file (text format):
 ```bash
-./kfrs --host "0.0.0.0" \      # Server host
-  --port 9090 \                # Server port (TCP)
-  --directory "./redirect" \   # Directory to serve files from
+./kfrs --host "0.0.0.0" \      # IP/Host to bind to
+  --port 9090 \                # TCP port to listen on
+  --serve-dir "./redirect" \   # Directory to serve files from
   --max-requests 20 \          # Max requests per IP/minute before banning
-  --ban-time 15 \              # Ban duration in minutes
+  --ban-time 15 \              # Ban duration (in minutes)
   --log-to-file \              # Enable file logging
-  --log-level "info" \         # Set log level to "info"
+  --log-level "info" \         # Log level (info, debug, warn, error)
   --log-file "./kfrs.log" \    # Log file path
   --log-file-format "text" \   # Log format (text or json)
   --log-max-size 10 \          # Max log file size (MB)
@@ -40,13 +40,13 @@ Enable logging to a file with a custom format:
 ### Using Environment Variables
 You can also configure `kfrs` using environment variables:
 ```bash
-export KFRS_HOST="0.0.0.0"         # Server host
-export KFRS_PORT=9090              # Server port (TCP)
-export KFRS_DIRECTORY="./redirect" # Directory to serve files from
+export KFRS_HOST="0.0.0.0"         # IP/Host to bind to
+export KFRS_PORT=9090              # TCP port to listen on
+export KFRS_SERVE_DIR="./redirect" # Directory to serve files from
 export KFRS_MAX_REQUESTS=20        # Max requests per IP/minute before banning
-export KFRS_BAN_TIME=15            # Ban duration in minutes
+export KFRS_BAN_TIME=15            # Ban duration (in minutes)
 export KFRS_LOG_TO_FILE=true       # Enable file logging
-export KFRS_LOG_LEVEL="info"       # Set log level to "info"
+export KFRS_LOG_LEVEL="info"       # Log level (info, debug, warn, error)
 export KFRS_LOG_FILE="./kfrs.log"  # Log file path
 export KFRS_LOG_FILE_FORMAT="text" # Log format (text or json)
 export KFRS_LOG_MAX_SIZE=10        # Max log file size (MB)
