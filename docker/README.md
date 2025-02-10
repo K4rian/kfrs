@@ -5,34 +5,58 @@ A Docker image for the [Killing Floor Redirect Server (kfrs)][1] based on the of
 ---
 
 ## Environment variables
-A few environment variables can be tweaked when creating a container to define the server configuration:
+Environment variables can be provided when creating a container to define the server configuration:
 
 <details>
 <summary>[Click to expand]</summary>
 
-Variable          | Default value | Description 
----               | ---           | ---
-KFRS_HOST         | 0.0.0.0       | IP/Host to bind to.
-KFRS_PORT         | 9090          | TCP port to listen on.
-KFRS_DIRECTORY    | ./redirect    | Directory to serve.
-KFRS_MAX_REQUESTS | 20            | Max requests per IP/minute.
-KFRS_BAN_TIME     | 15            | Ban duration (in minutes).
+Variable             | Default value | Description 
+---                  | ---           | ---
+KFRS_HOST            | 0.0.0.0       | IP/Host to bind to.
+KFRS_PORT            | 9090          | TCP port to listen on.
+KFRS_SERVE_DIR       | ./redirect    | Directory to serve files from.
+KFRS_MAX_REQUESTS    | 20            | Max requests per IP/minute before banning.
+KFRS_BAN_TIME        | 15            | Ban duration (in minutes).
+KFRS_LOG_TO_FILE     | false         | Enable file logging.
+KFRS_LOG_LEVEL       | info          | Log level (info, debug, warn, error).
+KFRS_LOG_FILE        | ./kfrs.log    | Log file path.
+KFRS_LOG_FILE_FORMAT | text          | Log format (text or json).
+KFRS_LOG_MAX_SIZE    | 10            | Max log file size (MB).
+KFRS_LOG_MAX_BACKUPS | 5             | Max number of old log files to keep.
+KFRS_LOG_MAX_AGE     | 28            | Max age of a log file (days).
 
 </details>
 
 ## Usage
 Run the server using default configuration.<br>
-Make sure that the `./redirect` directory exists before starting the container.
+> Make sure the `./redirect` directory exists before starting the container.
+```bash
+docker run -d \
+  --name kfrs \
+  -p 9090:9090/tcp \
+  -v $(pwd)/redirect:/home/kfrs/redirect \
+  -i k4rian/kfrs
+```
+
+Run the server with all environment variables set and file logging enabled.
+> Absolute paths are used for clarity.
 ```bash
 docker run -d \
   --name kfrs \
   -p 9090:9090/tcp \
   -e KFRS_HOST="0.0.0.0" \
   -e KFRS_PORT=9090 \
-  -e KFRS_DIRECTORY="./redirect" \
+  -e KFRS_SERVE_DIR="/home/kfrs/redirect" \
   -e KFRS_MAX_REQUESTS=20 \
   -e KFRS_BAN_TIME=15 \
-  -v ./redirect:/home/kfrs/redirect \
+  -e KFRS_LOG_TO_FILE=true \
+  -e KFRS_LOG_LEVEL="info" \
+  -e KFRS_LOG_FILE="/home/kfrs/kfrs.log" \
+  -e KFRS_LOG_FILE_FORMAT="text" \
+  -e KFRS_LOG_MAX_SIZE=10 \
+  -e KFRS_LOG_MAX_BACKUPS=5 \
+  -e KFRS_LOG_MAX_AGE=28 \
+  -v $(pwd)/redirect:/home/kfrs/redirect \
   -i k4rian/kfrs
 ```
 
