@@ -1,30 +1,17 @@
 package cmd
 
 import (
-	"log"
-	"net"
+	"fmt"
+	stdlog "log"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
 
-const (
-	defaultHost        = "0.0.0.0"
-	defaultPort        = 9090
-	defaultDirectory   = "./redirect"
-	defaultMaxRequests = 20
-	defaultBanTime     = 15
-)
-
-var (
-	Host        string
-	Port        int
-	Directory   string
-	MaxRequests int
-	BanTime     int
+	"github.com/K4rian/kfrs/internal/config"
+	"github.com/K4rian/kfrs/internal/log"
 )
 
 func BuildRootCommand() *cobra.Command {
@@ -41,19 +28,28 @@ func BuildRootCommand() *cobra.Command {
 		os.Exit(0)
 	})
 
-	config := []struct {
+	conf := []struct {
 		Key         string
 		Default     interface{}
 		Description string
 	}{
-		{"host", defaultHost, "IP/Host to bind to"},
-		{"port", defaultPort, "TCP port to listen on"},
-		{"directory", defaultDirectory, "Directory to serve"},
-		{"max_requests", defaultMaxRequests, "Max requests per IP/minute"},
-		{"ban_time", defaultBanTime, "Ban duration (in minutes)"},
+		{"host", config.DefaultHost, "IP/Host to bind to"},
+		{"port", config.DefaultPort, "TCP port to listen on"},
+		{"directory", config.DefaultDirectory, "Directory to serve"},
+		{"max-requests", config.DefaultMaxRequests, "Max requests per IP/minute"},
+		{"ban-time", config.DefaultBanTime, "Ban duration (in minutes)"},
+		{"log-to-file", config.DefaultLogToFile, "Enable log file output"},
+		{"log-level", config.DefaultLogLevel, "Set the log level (debug, info, warn, error)"},
+		{"log-file", config.DefaultLogFile, "Specify the log file path"},
+		{"log-file-format", config.DefaultLogFileFormat, "Specify the log format (text or json)"},
+		{"log-max-size", config.DefaultLogMaxSize, "Set the maximum log file size in MB"},
+		{"log-max-backups", config.DefaultLogMaxBackups, "Set the maximum number of backup log files to keep"},
+		{"log-max-age", config.DefaultLogMaxAge, "Set the maximum number of days to retain old log files"},
 	}
-	for _, cfg := range config {
+	for _, cfg := range conf {
 		switch v := cfg.Default.(type) {
+		case bool:
+			rootCmd.Flags().Bool(cfg.Key, v, cfg.Description)
 		case string:
 			rootCmd.Flags().String(cfg.Key, v, cfg.Description)
 		case int:
@@ -72,40 +68,46 @@ func BuildRootCommand() *cobra.Command {
 }
 
 func runRootCommand(cmd *cobra.Command, args []string) {
-	// Init configuration values
-	initConfig(cmd)
+	conf := config.Get()
 
-	// Validate config values
-	validateConfig()
+	// Set configuration values
+	setConfigValues(cmd, conf)
+
+	// Validate configuration values
+	if err := conf.Validate(); err != nil {
+		stdlog.Fatalf("Configuration validation error: %v", err)
+	}
+
+	// Init the logger
+	log.Init()
 
 	// Print the final configuration
-	printConfig()
-}
-
-func initConfig(cmd *cobra.Command) {
-	Host = getConfigValue(cmd, "host", defaultHost).(string)
-	Port = getConfigValue(cmd, "port", defaultPort).(int)
-	Directory = getConfigValue(cmd, "directory", defaultDirectory).(string)
-	MaxRequests = getConfigValue(cmd, "max-requests", defaultMaxRequests).(int)
-	BanTime = getConfigValue(cmd, "ban-time", defaultBanTime).(int)
+	printConfigValues(conf)
 }
 
 func getConfigValue(cmd *cobra.Command, key string, defaultValue any) any {
 	switch defaultValue.(type) {
+	case bool:
 	case int:
 	case string:
 	default:
-		log.Fatalf("Unsupported type for flag %s: %T", key, defaultValue)
+		stdlog.Fatalf("Unsupported type for flag %s: %T", key, defaultValue)
 	}
 
 	// CLI arguments take precedence over environment variables
 	if cmd.Flags().Changed(key) {
 		val := cmd.Flag(key).Value.String()
 		switch defaultValue.(type) {
+		case bool:
+			boolVal, err := strconv.ParseBool(val)
+			if err != nil {
+				stdlog.Fatalf("Invalid bool value for flag %s: %s", key, val)
+			}
+			return boolVal
 		case int:
 			intVal, err := strconv.Atoi(val)
 			if err != nil {
-				log.Fatalf("Invalid integer value for flag %s: %s", key, val)
+				stdlog.Fatalf("Invalid integer value for flag %s: %s", key, val)
 			}
 			return intVal
 		case string:
@@ -115,6 +117,8 @@ func getConfigValue(cmd *cobra.Command, key string, defaultValue any) any {
 
 	if viper.IsSet(key) {
 		switch defaultValue.(type) {
+		case bool:
+			return viper.GetBool(key)
 		case int:
 			return viper.GetInt(key)
 		case string:
@@ -124,44 +128,36 @@ func getConfigValue(cmd *cobra.Command, key string, defaultValue any) any {
 	return defaultValue
 }
 
-func validateConfig() {
-	// Host validation (v4, v6, or domain)
-	if net.ParseIP(Host) == nil {
-		_, err := net.LookupHost(Host)
-		if err != nil {
-			log.Fatalf("Invalid host: %s", Host)
-		}
-	}
-
-	// Port validation
-	if Port <= 1024 || Port >= 65535 {
-		log.Fatalf("Port must be between 1025 and 65534: %d", Port)
-	}
-
-	// The directory must exist
-	if _, err := os.Stat(Directory); os.IsNotExist(err) {
-		log.Fatalf("Directory does not exist: %s", Directory)
-	}
-
-	// Max Requests validation (> 0 and < 100)
-	if MaxRequests <= 0 || MaxRequests >= 100 {
-		log.Fatalf("Max requests should be between 1 and 99: %d", MaxRequests)
-	}
-
-	// Ban Time validation (should be > 0)
-	if BanTime <= 0 {
-		log.Fatalf("Ban time should be greater than 0: %d", BanTime)
-	}
+func setConfigValues(cmd *cobra.Command, conf *config.Config) {
+	conf.Host = getConfigValue(cmd, "host", config.DefaultHost).(string)
+	conf.Port = getConfigValue(cmd, "port", config.DefaultPort).(int)
+	conf.Directory = getConfigValue(cmd, "directory", config.DefaultDirectory).(string)
+	conf.MaxRequests = getConfigValue(cmd, "max-requests", config.DefaultMaxRequests).(int)
+	conf.BanTime = getConfigValue(cmd, "ban-time", config.DefaultBanTime).(int)
+	conf.LogToFile = getConfigValue(cmd, "log-to-file", config.DefaultLogToFile).(bool)
+	conf.LogLevel = strings.ToLower(getConfigValue(cmd, "log-level", config.DefaultLogLevel).(string))
+	conf.LogFile = getConfigValue(cmd, "log-file", config.DefaultLogFile).(string)
+	conf.LogFileFormat = strings.ToLower(getConfigValue(cmd, "log-file-format", config.DefaultLogFileFormat).(string))
+	conf.LogMaxSize = getConfigValue(cmd, "log-max-size", config.DefaultLogMaxSize).(int)
+	conf.LogMaxBackups = getConfigValue(cmd, "log-max-backups", config.DefaultLogMaxBackups).(int)
+	conf.LogMaxAge = getConfigValue(cmd, "log-max-age", config.DefaultLogMaxAge).(int)
 }
 
-func printConfig() {
-	log.Println("===================================================")
-	log.Println("                   KFRS Settings                   ")
-	log.Println("===================================================")
-	log.Printf(" ● Host         → %s\n", Host)
-	log.Printf(" ● Port         → %d\n", Port)
-	log.Printf(" ● Directory    → %s\n", Directory)
-	log.Printf(" ● Max Requests → %d\n", MaxRequests)
-	log.Printf(" ● Ban Time     → %d\n", BanTime)
-	log.Println("====================================================")
+func printConfigValues(conf *config.Config) {
+	log.Logger.Info("===================================================")
+	log.Logger.Info("                   KFRS Settings                   ")
+	log.Logger.Info("===================================================")
+	log.Logger.Info(fmt.Sprintf(" ● Host            → %s", conf.Host))
+	log.Logger.Info(fmt.Sprintf(" ● Port            → %d", conf.Port))
+	log.Logger.Info(fmt.Sprintf(" ● Directory       → %s", conf.Directory))
+	log.Logger.Info(fmt.Sprintf(" ● Max Requests    → %d/minute", conf.MaxRequests))
+	log.Logger.Info(fmt.Sprintf(" ● Ban Time        → %d minute(s)", conf.BanTime))
+	log.Logger.Info(fmt.Sprintf(" ● Log To File     → %t", conf.LogToFile))
+	log.Logger.Info(fmt.Sprintf(" ● Log Level       → %s", conf.LogLevel))
+	log.Logger.Info(fmt.Sprintf(" ● Log File        → %s", conf.LogFile))
+	log.Logger.Info(fmt.Sprintf(" ● Log File Format → %s", conf.LogFileFormat))
+	log.Logger.Info(fmt.Sprintf(" ● Log Max Size    → %d MB", conf.LogMaxSize))
+	log.Logger.Info(fmt.Sprintf(" ● Log Max Backups → %d", conf.LogMaxBackups))
+	log.Logger.Info(fmt.Sprintf(" ● Log Max Age     → %d days", conf.LogMaxAge))
+	log.Logger.Info("====================================================")
 }

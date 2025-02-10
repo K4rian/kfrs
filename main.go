@@ -2,49 +2,50 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
+	stdlog "log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/K4rian/kfrs/cmd"
+	"github.com/K4rian/kfrs/internal/config"
+	"github.com/K4rian/kfrs/internal/log"
 	"github.com/K4rian/kfrs/internal/server"
 )
 
 func main() {
 	rootCmd := cmd.BuildRootCommand()
-
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		stdlog.Fatal(err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
-	redirectServer := server.NewKFHTTPRedirectServer(
-		cmd.Host,
-		cmd.Port,
-		cmd.Directory,
-		cmd.MaxRequests,
-		cmd.BanTime,
+	conf := config.Get()
+	server := server.NewKFHTTPRedirectServer(
+		conf.Host,
+		conf.Port,
+		conf.Directory,
+		conf.MaxRequests,
+		conf.BanTime,
 		ctx,
 	)
 
-	log.Printf("> Starting the HTTP Redirect Server on %s:%d...\n", cmd.Host, cmd.Port)
+	log.Logger.Info(fmt.Sprintf("Starting the HTTP Redirect Server on %s:%d", conf.Host, conf.Port))
 
-	if err := redirectServer.Listen(); err != nil {
-		log.Fatalf("Failed to start the HTTP Redirect Server: %v", err)
+	if err := server.Listen(); err != nil {
+		log.Logger.Error("Failed to start the HTTP Redirect Server", "error", err)
 	}
-
-	log.Printf("> HTTP Redirect Server serving '%s' on %s\n", redirectServer.RootDirectory(), redirectServer.Host())
+	log.Logger.Info("HTTP Redirect Server started", "rootdir", server.RootDirectory(), "address", server.Address())
 
 	<-signalChan
 
-	log.Println("\nShutting down...")
-
+	log.Logger.Info("Shutting down...")
 	cancel()
-	redirectServer.Stop()
+	server.Stop()
 
-	log.Println("The HTTP Redirect Server has been stopped.")
+	log.Logger.Info("The HTTP Redirect Server has been stopped.")
 }

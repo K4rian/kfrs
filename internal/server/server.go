@@ -9,10 +9,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/K4rian/kfrs/internal/log"
 )
 
 type KFHTTPRedirectServer struct {
-	ip               string
+	host             string
 	port             int
 	rootDir          string
 	server           *http.Server
@@ -27,7 +29,7 @@ type KFHTTPRedirectServer struct {
 }
 
 func NewKFHTTPRedirectServer(
-	ip string,
+	host string,
 	port int,
 	rootDir string,
 	maxRequestsPerIP int,
@@ -36,13 +38,12 @@ func NewKFHTTPRedirectServer(
 ) *KFHTTPRedirectServer {
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir(rootDir))
-
 	server := &KFHTTPRedirectServer{
 		server: &http.Server{
-			Addr:    fmt.Sprintf("%s:%d", ip, port),
+			Addr:    fmt.Sprintf("%s:%d", host, port),
 			Handler: mux,
 		},
-		ip:               ip,
+		host:             host,
 		port:             port,
 		rootDir:          rootDir,
 		maxRequestsPerIP: maxRequestsPerIP,
@@ -57,8 +58,8 @@ func NewKFHTTPRedirectServer(
 	return server
 }
 
-func (h *KFHTTPRedirectServer) Host() string {
-	return fmt.Sprintf("%s:%d", h.ip, h.port)
+func (h *KFHTTPRedirectServer) Address() string {
+	return fmt.Sprintf("%s:%d", h.host, h.port)
 }
 
 func (h *KFHTTPRedirectServer) RootDirectory() string {
@@ -76,6 +77,7 @@ func (h *KFHTTPRedirectServer) Listen() error {
 	done := make(chan error, 1)
 
 	go func() {
+		log.Logger.Debug("Server starting to listen...", "address", h.Address())
 		if err := h.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			done <- err
 		}
@@ -95,20 +97,29 @@ func (h *KFHTTPRedirectServer) Stop() error {
 	defer h.mu.Unlock()
 
 	if h.cancel != nil {
+		log.Logger.Debug("Cancelling server context")
 		h.cancel()
 	}
 
 	shutdownCtx, cancelShutdown := context.WithTimeout(h.ctx, 5*time.Second)
 	defer cancelShutdown()
-	return h.server.Shutdown(shutdownCtx)
+
+	log.Logger.Debug("Shutting down the server...", "timeout", "5 seconds")
+	if err := h.server.Shutdown(shutdownCtx); err != nil {
+		return err
+	}
+	log.Logger.Debug("Server shutdown complete")
+	return nil
 }
 
 func (h *KFHTTPRedirectServer) handleRequest(fileServer http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
+		log.Logger.Debug("Request received", "ip", ip, "method", r.Method, "path", r.URL.Path)
 
 		// Check if the IP is blocked
 		if h.isIPBlocked(ip) {
+			log.Logger.Warn("IP blocked", "ip", ip)
 			http.Error(w, ErrForbidden, http.StatusForbidden)
 			return
 		}
@@ -118,6 +129,7 @@ func (h *KFHTTPRedirectServer) handleRequest(fileServer http.Handler) http.Handl
 
 		// Only GET method is allowed
 		if r.Method != http.MethodGet {
+			log.Logger.Warn("Method not allowed", "method", r.Method, "path", r.URL.Path)
 			sendHTTPError(w, http.StatusMethodNotAllowed, ErrMethodNotAllowed)
 			return
 		}
@@ -126,22 +138,26 @@ func (h *KFHTTPRedirectServer) handleRequest(fileServer http.Handler) http.Handl
 		reqPath := r.URL.Path
 		filePath := filepath.Join(h.rootDir, filepath.Clean(reqPath))
 
+		log.Logger.Debug("Resolving file path", "requestedPath", reqPath, "resolvedPath", filePath)
+
 		// Ensure the file path is within the root directory
 		rootDirAbs, err := filepath.Abs(h.rootDir)
 		if err != nil {
+			log.Logger.Error("Failed to resolve root directory", "error", err)
 			sendHTTPError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve root directory: %v", err))
 			return
 		}
 
 		absFilePath, err := filepath.Abs(filePath)
 		if err != nil {
+			log.Logger.Error("Failed to resolve file path", "error", err)
 			sendHTTPError(w, http.StatusInternalServerError, fmt.Sprintf("failed to resolve file path: %v", err))
 			return
 		}
 
 		rel, err := filepath.Rel(rootDirAbs, absFilePath)
 		if err != nil || strings.HasPrefix(rel, "..") {
-			// If the file path is outside of the root directory, send 403
+			log.Logger.Warn("File path outside root directory", "requestedPath", reqPath)
 			sendHTTPError(w, http.StatusForbidden, ErrForbidden)
 			return
 		}
@@ -149,16 +165,18 @@ func (h *KFHTTPRedirectServer) handleRequest(fileServer http.Handler) http.Handl
 		// If the path is "/" or empty, try to serve the index.html
 		if reqPath == "/" || reqPath == "" {
 			if _, err := os.Stat(h.defaultFile); err == nil {
+				log.Logger.Debug("Serving default index file", "file", h.defaultFile)
 				http.ServeFile(w, r, h.defaultFile)
 				return
 			}
-			// Return 500 if index.html doesn't exist
+			log.Logger.Error("Index.html not found", "error", "file not found")
 			sendHTTPError(w, http.StatusInternalServerError, ErrInternalServerError)
 			return
 		}
 
 		// Check that requested file ends with .uz2
 		if !strings.HasSuffix(reqPath, ".uz2") {
+			log.Logger.Warn("Forbidden file extension", "requestedPath", reqPath)
 			sendHTTPError(w, http.StatusForbidden, ErrForbidden)
 			return
 		}
@@ -166,15 +184,19 @@ func (h *KFHTTPRedirectServer) handleRequest(fileServer http.Handler) http.Handl
 		// Check if the file exists
 		info, err := os.Stat(absFilePath)
 		if os.IsNotExist(err) {
+			log.Logger.Warn("File not found", "requestedPath", reqPath)
 			sendHTTPError(w, http.StatusNotFound, ErrNotFound)
 			return
 		} else if err != nil {
+			log.Logger.Error("Error checking file status", "error", err)
 			sendHTTPError(w, http.StatusInternalServerError, ErrInternalServerError)
 			return
 		} else if info.IsDir() {
+			log.Logger.Warn("Requested path is a directory", "requestedPath", reqPath)
 			sendHTTPError(w, http.StatusForbidden, ErrForbidden)
 			return
 		}
+		log.Logger.Debug("Serving file", "filePath", absFilePath)
 		fileServer.ServeHTTP(w, r)
 	}
 }
@@ -188,6 +210,7 @@ func (h *KFHTTPRedirectServer) trackIPRequest(ip string) {
 
 	// If this IP has been blocked, do nothing
 	if unblockTime, ok := h.ipBlockList[ip]; ok && time.Now().Before(unblockTime) {
+		log.Logger.Debug("IP still blocked", "ip", ip, "unblockTime", unblockTime)
 		return
 	}
 
@@ -196,12 +219,13 @@ func (h *KFHTTPRedirectServer) trackIPRequest(ip string) {
 
 	// Check if the IP has exceeded the request threshold
 	if len(h.ipRequestCount[ip]) > h.maxRequestsPerIP {
-		// Block the IP
+		log.Logger.Warn("IP exceeded request threshold, blocking", "ip", ip)
 		h.ipBlockList[ip] = now.Add(time.Duration(h.banTime) * time.Minute)
 	}
 
 	// Record the request time
 	h.ipRequestCount[ip] = append(h.ipRequestCount[ip], now)
+	log.Logger.Debug("Tracking IP request", "ip", ip, "requestCount", len(h.ipRequestCount[ip]))
 }
 
 func (h *KFHTTPRedirectServer) isIPBlocked(ip string) bool {

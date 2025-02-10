@@ -1,7 +1,7 @@
 # KF Redirect Server (KFRS)
 
 ## Overview
-`kfrs` is a lightweight HTTP file server for the Killing Floor Dedicated Server (KFDS). <br>
+`kfrs` is a lightweight HTTP file server for the Killing Floor Dedicated Server (KFDS).<br>
 It serves .uz2 files from a specified directory while enforcing rate limits and IP bans to prevent excessive requests and ensure secure file access.
 
 ## Features
@@ -15,8 +15,8 @@ It serves .uz2 files from a specified directory while enforcing rate limits and 
 ./kfrs --host "0.0.0.0" \
   --port 9090 \
   --directory "./redirect" \
-  --max-requests 10 \
-  --ban-time 5
+  --max-requests 20 \
+  --ban-time 15
 ```
 
 ## Using Docker
